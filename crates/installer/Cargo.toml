@@ -1,0 +1,28 @@
+[package]
+name = "claw-egg-installer"
+version = "0.1.0"
+edition = "2021"
+description = "Core installer library for OpenClaw"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# tokio = { version = "1", features = ["rt-multi-thread", "process", "fs"] }
+# reqwest = { version = "0.12", features = ["json", "stream"] }
+anyhow = "1"
+thiserror = "1"
+log = "0.4"
+# dirs = "5.0.0"
+which = "5"
+# tempfile = "3"
+# zip = "=1.1.4"
+# tar = "0.4"
+# flate2 = "1"
+# walkdir = "2"
+
+[dev-dependencies]
+tokio-test = "0.4"
+mockall = "0.12"
