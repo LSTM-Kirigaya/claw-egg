@@ -22,6 +22,8 @@ pub fn run() {
             commands::env::get_system_info,
             commands::install::install_component,
             commands::install::get_install_progress,
+            commands::install::start_full_installation,
+            commands::install::is_installing,
             commands::config::save_config,
             commands::config::load_config,
         ])

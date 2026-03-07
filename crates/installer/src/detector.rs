@@ -31,20 +31,21 @@ impl EnvironmentDetector {
         }
     }
 
-    /// Check if CMake is installed
-    pub fn check_cmake(&self) -> EnvironmentCheck {
-        match which::which("cmake") {
+    /// Check if Qwen CLI is installed
+    pub fn check_qwen_cli(&self) -> EnvironmentCheck {
+        // Check for qwen command (npm global package)
+        match which::which("qwen") {
             Ok(path) => {
-                let version = self.get_cmake_version();
+                let version = self.get_qwen_version();
                 EnvironmentCheck {
-                    component: Component::Cmake,
+                    component: Component::QwenCli,
                     installed: true,
                     version,
                     path: Some(path.to_string_lossy().to_string()),
                 }
             }
             Err(_) => EnvironmentCheck {
-                component: Component::Cmake,
+                component: Component::QwenCli,
                 installed: false,
                 version: None,
                 path: None,
@@ -77,7 +78,7 @@ impl EnvironmentDetector {
     pub fn check_all(&self) -> Vec<EnvironmentCheck> {
         vec![
             self.check_nodejs(),
-            self.check_cmake(),
+            self.check_qwen_cli(),
             self.check_openclaw(),
         ]
     }
@@ -98,8 +99,8 @@ impl EnvironmentDetector {
             })
     }
 
-    fn get_cmake_version(&self) -> Option<String> {
-        Command::new("cmake")
+    fn get_qwen_version(&self) -> Option<String> {
+        Command::new("qwen")
             .arg("--version")
             .output()
             .ok()
@@ -107,7 +108,7 @@ impl EnvironmentDetector {
                 if output.status.success() {
                     String::from_utf8(output.stdout)
                         .ok()
-                        .and_then(|s| s.lines().next().map(|l| l.to_string()))
+                        .map(|s| s.trim().to_string())
                 } else {
                     None
                 }
@@ -159,5 +160,12 @@ mod tests {
         if node_check.installed {
             assert!(node_check.path.is_some());
         }
+    }
+
+    #[test]
+    fn test_qwen_cli_detection() {
+        let detector = EnvironmentDetector::new();
+        let check = detector.check_qwen_cli();
+        assert_eq!(check.component, Component::QwenCli);
     }
 }

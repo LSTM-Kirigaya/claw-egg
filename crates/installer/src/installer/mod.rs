@@ -1,12 +1,10 @@
-mod cmake;
 mod node;
 mod openclaw;
 
-pub use cmake::CmakeInstaller;
 pub use node::NodeInstaller;
 pub use openclaw::OpenClawInstaller;
 
-use crate::types::{Component, InstallProgress, InstallStatus};
+use crate::types::{Component, ComponentProgress, InstallStatus};
 
 /// Trait for component installers
 pub trait Installer: Send + Sync {
@@ -20,8 +18,8 @@ pub trait Installer: Send + Sync {
     fn version(&self) -> Option<String>;
 
     /// Get current installation progress
-    fn progress(&self) -> InstallProgress {
-        InstallProgress {
+    fn progress(&self) -> ComponentProgress {
+        ComponentProgress {
             component: self.component(),
             status: if self.is_installed() {
                 InstallStatus::Installed
