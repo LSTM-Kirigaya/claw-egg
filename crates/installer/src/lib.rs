@@ -12,10 +12,17 @@ pub mod detector;
 pub mod downloader;
 pub mod installer;
 pub mod orchestrator;
+pub mod paths;
 pub mod types;
 
 pub use detector::EnvironmentDetector;
 pub use downloader::{download_file_with_progress, download_nodejs, DownloadConfig};
+pub use paths::{
+    build_path_with_bundled_nodejs, create_command_with_bundled_node, get_bin_dir,
+    get_install_root, get_node_exe, get_nodejs_dir, get_npm_exe, get_npx_exe,
+    get_openclaw_dir, get_openclaw_exe, is_bundled_nodejs_installed, npm_install_global,
+    run_openclaw,
+};
 pub use installer::{NodeInstaller, OpenClawInstaller};
 pub use orchestrator::InstallOrchestrator;
 pub use types::*;

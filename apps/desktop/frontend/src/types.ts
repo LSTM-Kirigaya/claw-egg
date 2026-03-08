@@ -1,6 +1,6 @@
 // Types matching the Rust backend
 
-export type Component = 'NodeJs' | 'QwenCli' | 'OpenClaw';
+export type Component = 'NodeJs' | 'OpenClaw';
 
 export type InstallStatus = 'NotInstalled' | 'Installing' | 'Installed' | { Failed: string };
 

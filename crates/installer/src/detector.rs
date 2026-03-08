@@ -31,27 +31,7 @@ impl EnvironmentDetector {
         }
     }
 
-    /// Check if Qwen CLI is installed
-    pub fn check_qwen_cli(&self) -> EnvironmentCheck {
-        // Check for qwen command (npm global package)
-        match which::which("qwen") {
-            Ok(path) => {
-                let version = self.get_qwen_version();
-                EnvironmentCheck {
-                    component: Component::QwenCli,
-                    installed: true,
-                    version,
-                    path: Some(path.to_string_lossy().to_string()),
-                }
-            }
-            Err(_) => EnvironmentCheck {
-                component: Component::QwenCli,
-                installed: false,
-                version: None,
-                path: None,
-            },
-        }
-    }
+
 
     /// Check if OpenClaw is installed
     pub fn check_openclaw(&self) -> EnvironmentCheck {
@@ -78,7 +58,6 @@ impl EnvironmentDetector {
     pub fn check_all(&self) -> Vec<EnvironmentCheck> {
         vec![
             self.check_nodejs(),
-            self.check_qwen_cli(),
             self.check_openclaw(),
         ]
     }
@@ -99,21 +78,7 @@ impl EnvironmentDetector {
             })
     }
 
-    fn get_qwen_version(&self) -> Option<String> {
-        Command::new("qwen")
-            .arg("--version")
-            .output()
-            .ok()
-            .and_then(|output| {
-                if output.status.success() {
-                    String::from_utf8(output.stdout)
-                        .ok()
-                        .map(|s| s.trim().to_string())
-                } else {
-                    None
-                }
-            })
-    }
+
 
     fn get_openclaw_version(&self) -> Option<String> {
         Command::new("openclaw")
@@ -146,7 +111,7 @@ mod tests {
     fn test_detector_creation() {
         let detector = EnvironmentDetector::new();
         let checks = detector.check_all();
-        assert_eq!(checks.len(), 3);
+        assert_eq!(checks.len(), 2);
     }
 
     #[test]
@@ -162,10 +127,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_qwen_cli_detection() {
-        let detector = EnvironmentDetector::new();
-        let check = detector.check_qwen_cli();
-        assert_eq!(check.component, Component::QwenCli);
-    }
 }

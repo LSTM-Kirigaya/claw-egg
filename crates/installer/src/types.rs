@@ -117,7 +117,6 @@ impl fmt::Display for InstallStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Component {
     NodeJs,
-    QwenCli,
     OpenClaw,
 }
 
@@ -125,7 +124,6 @@ impl fmt::Display for Component {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Component::NodeJs => write!(f, "Node.js"),
-            Component::QwenCli => write!(f, "Qwen CLI"),
             Component::OpenClaw => write!(f, "OpenClaw"),
         }
     }
@@ -216,7 +214,6 @@ mod tests {
     #[test]
     fn test_component_display() {
         assert_eq!(Component::NodeJs.to_string(), "Node.js");
-        assert_eq!(Component::QwenCli.to_string(), "Qwen CLI");
         assert_eq!(Component::OpenClaw.to_string(), "OpenClaw");
     }
 }
