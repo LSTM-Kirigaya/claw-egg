@@ -14,7 +14,9 @@ pub mod downloader;
 pub mod installer;
 pub mod orchestrator;
 pub mod paths;
+pub mod script_installer;
 pub mod settings;
+pub mod ssh_runner;
 pub mod types;
 
 pub use detector::EnvironmentDetector;

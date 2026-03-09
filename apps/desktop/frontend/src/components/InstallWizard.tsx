@@ -21,7 +21,7 @@ import {
 import { Download, CheckCircle, Settings, Rocket, ExternalLink } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
-import { OverallProgress, STAGE_NAMES, InstallStage } from '../types'
+import { OverallProgress, STAGE_NAMES } from '../types'
 
 interface InstallWizardProps {
   open: boolean

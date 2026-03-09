@@ -1,4 +1,5 @@
 use crate::types::{Component, EnvironmentCheck};
+use std::path::Path;
 use std::process::Command;
 
 /// Detects system environment and installed components
@@ -50,16 +51,20 @@ impl EnvironmentDetector {
         false
     }
 
-    /// Check if OpenClaw is installed
+    /// Check if OpenClaw 中文社区 (openclaw-cn) is installed
+    /// 官方脚本安装的是 openclaw-cn，同时兼容 openclaw
     pub fn check_openclaw(&self) -> EnvironmentCheck {
-        match which::which("openclaw") {
-            Ok(path) => {
-                let version = self.get_openclaw_version();
+        // 优先检测 openclaw-cn（官方脚本安装的包名）
+        let path = which::which("openclaw-cn").or_else(|_| which::which("openclaw"));
+
+        match path {
+            Ok(p) => {
+                let version = self.get_openclaw_version(&p);
                 EnvironmentCheck {
                     component: Component::OpenClaw,
                     installed: true,
                     version,
-                    path: Some(path.to_string_lossy().to_string()),
+                    path: Some(p.to_string_lossy().to_string()),
                 }
             }
             Err(_) => EnvironmentCheck {
@@ -95,8 +100,8 @@ impl EnvironmentDetector {
             })
     }
 
-    fn get_openclaw_version(&self) -> Option<String> {
-        Command::new("openclaw")
+    fn get_openclaw_version(&self, path: &Path) -> Option<String> {
+        Command::new(path)
             .arg("--version")
             .output()
             .ok()

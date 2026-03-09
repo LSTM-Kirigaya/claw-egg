@@ -90,7 +90,7 @@ pub struct NetworkSettings {
 impl Default for NetworkSettings {
     fn default() -> Self {
         Self {
-            use_china_mirror: false,
+            use_china_mirror: true, // 默认使用国内镜像，与安装流程同步
             custom_mirror: None,
             proxy_enabled: false,
             proxy_url: None,
@@ -134,6 +134,66 @@ impl Default for UserBehavior {
             last_active_tab: "manage".to_string(),
             expanded_sections: Vec::new(),
             recent_plugins: Vec::new(),
+        }
+    }
+}
+
+/// SSH 连接配置（两种填入方式二选一）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshConfig {
+    /// 方式一：完整 SSH 命令，如 "ssh user@host -p 22"
+    pub ssh_command: Option<String>,
+    /// 方式二：分参数填入
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub user: Option<String>,
+    /// 可选：SSH 私钥路径
+    pub identity_file: Option<String>,
+}
+
+impl Default for SshConfig {
+    fn default() -> Self {
+        Self {
+            ssh_command: None,
+            host: None,
+            port: Some(22),
+            user: None,
+            identity_file: None,
+        }
+    }
+}
+
+/// 运行环境（本机或远程 SSH 服务器）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeEnvironment {
+    pub id: String,
+    pub name: String,
+    /// "local" | "remote"
+    pub env_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ssh_config: Option<SshConfig>,
+}
+
+/// 运行环境设置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeEnvironmentSettings {
+    pub environments: Vec<RuntimeEnvironment>,
+    pub current_environment_id: String,
+}
+
+impl Default for RuntimeEnvironmentSettings {
+    fn default() -> Self {
+        Self {
+            environments: vec![RuntimeEnvironment {
+                id: "local".to_string(),
+                name: "本机".to_string(),
+                env_type: "local".to_string(),
+                ssh_config: None,
+            }],
+            current_environment_id: "local".to_string(),
         }
     }
 }
@@ -188,6 +248,10 @@ pub struct AppSettings {
     /// 托盘设置
     pub tray: TraySettings,
     
+    /// 运行环境（本机/远程 SSH）
+    #[serde(default)]
+    pub runtime_environments: RuntimeEnvironmentSettings,
+    
     /// 是否首次运行
     pub first_run: bool,
     
@@ -207,6 +271,7 @@ impl Default for AppSettings {
             install: InstallPreferences::default(),
             behavior: UserBehavior::default(),
             tray: TraySettings::default(),
+            runtime_environments: RuntimeEnvironmentSettings::default(),
             first_run: true,
             last_updated: chrono::Local::now().to_rfc3339(),
         }

@@ -1,4 +1,5 @@
 use claw_egg_installer::orchestrator::InstallOrchestrator;
+use claw_egg_installer::settings::AppSettings;
 use claw_egg_installer::types::{Component, ComponentProgress, InstallResult, OverallProgress};
 use std::sync::{Arc, Mutex};
 use tauri::command;
@@ -84,6 +85,7 @@ pub fn get_install_progress(
 }
 
 /// Start full installation with progress events
+/// 从应用配置读取 useChinaMirror，与设置中的「使用国内镜像」同步
 #[command]
 pub async fn start_full_installation(
     app: tauri::AppHandle,
@@ -95,9 +97,14 @@ pub async fn start_full_installation(
 
     state.set_installing(true);
 
+    // 从配置读取是否使用国内镜像（与设置对话框同步）
+    let use_china_mirror = AppSettings::load()
+        .map(|s| s.network.use_china_mirror)
+        .unwrap_or(true); // 默认使用国内镜像
+
     // Create orchestrator with progress callback
     let app_handle = app.clone();
-    let orchestrator = InstallOrchestrator::new().on_progress(move |progress: OverallProgress| {
+    let orchestrator = InstallOrchestrator::new(use_china_mirror).on_progress(move |progress: OverallProgress| {
         // Emit progress event to frontend
         let _ = app_handle.emit("install-progress", progress);
     });

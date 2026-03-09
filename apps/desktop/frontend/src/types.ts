@@ -456,7 +456,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     updateAvailable: true,
   },
   network: {
-    useChinaMirror: false,
+    useChinaMirror: true, // 默认使用国内镜像，与安装流程同步
     proxyEnabled: false,
   },
   install: {
@@ -504,3 +504,26 @@ export type AppView = 'installer' | 'main';
 
 // Main app tabs
 export type MainTab = 'manage' | 'marketplace' | 'community';
+
+/// 运行环境 - SSH 配置
+export interface SshConfig {
+  sshCommand?: string;
+  host?: string;
+  port?: number;
+  user?: string;
+  identityFile?: string;
+}
+
+/// 运行环境（本机或远程 SSH）
+export interface RuntimeEnvironment {
+  id: string;
+  name: string;
+  envType: string;
+  sshConfig?: SshConfig;
+}
+
+/// 运行环境设置
+export interface RuntimeEnvironmentSettings {
+  environments: RuntimeEnvironment[];
+  currentEnvironmentId: string;
+}

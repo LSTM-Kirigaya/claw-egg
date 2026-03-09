@@ -8,7 +8,6 @@ import {
   Button,
   Chip,
   Grid,
-  IconButton,
   InputAdornment,
   Dialog,
   DialogTitle,
@@ -17,7 +16,6 @@ import {
   Rating,
   Avatar,
   Skeleton,
-  Tooltip
 } from '@mui/material'
 import {
   Search,
@@ -26,7 +24,6 @@ import {
   Star,
   TrendingUp,
   CheckCircle,
-  ExternalLink
 } from 'lucide-react'
 import { Plugin } from '../types'
 

@@ -151,7 +151,7 @@ pub fn is_bundled_nodejs_installed() -> bool {
 /// but still includes the user's PATH for other dependencies.
 pub fn build_path_with_bundled_nodejs() -> anyhow::Result<String> {
     let nodejs_dir = get_nodejs_dir()?;
-    let _nodejs_bin = nodejs_dir.join("bin");
+    let nodejs_bin = nodejs_dir.join("bin");
     
     let current_path = std::env::var("PATH").unwrap_or_default();
     

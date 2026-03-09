@@ -31,13 +31,6 @@ let lastLoadTime = 0;
 const CACHE_TTL = 5000; // 5秒缓存
 
 /**
- * 获取配置存储路径
- */
-function getSettingsPath(): string {
-  return 'settings.json';
-}
-
-/**
  * 从文件加载配置
  */
 export async function loadSettings(): Promise<AppSettings> {
@@ -313,9 +306,3 @@ export function onSettingsChange(listener: SettingsChangeListener): () => void {
   };
 }
 
-/**
- * 触发配置变更事件
- */
-function notifyListeners(settings: AppSettings): void {
-  listeners.forEach(listener => listener(settings));
-}

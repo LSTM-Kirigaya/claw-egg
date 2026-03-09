@@ -13,7 +13,6 @@ import {
   Tabs,
   Tab,
   List,
-  ListItem,
   Fab,
   Dialog,
   DialogTitle,
@@ -33,20 +32,6 @@ import {
   Flame
 } from 'lucide-react'
 import { CommunityPost } from '../types'
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div hidden={value !== index} className="w-full">
-      {value === index && <Box className="pt-3">{children}</Box>}
-    </div>
-  )
-}
 
 // Mock data for community posts
 const MOCK_POSTS: CommunityPost[] = [

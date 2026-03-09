@@ -27,7 +27,7 @@ import {
   Terminal,
   CheckCircle2
 } from 'lucide-react'
-import { EnvironmentCheck, OverallProgress, InstallStage, STAGE_NAMES } from '../types'
+import { EnvironmentCheck, OverallProgress, STAGE_NAMES } from '../types'
 
 interface InstallerLayerProps {
   onInstallationComplete: () => void;

@@ -44,6 +44,14 @@ pub fn run() {
             commands::config::openclaw_config_exists,
             commands::config::get_plugin_configs,
             
+            // Runtime environment commands
+            commands::environment::get_runtime_environments,
+            commands::environment::set_current_environment,
+            commands::environment::add_runtime_environment,
+            commands::environment::update_runtime_environment,
+            commands::environment::remove_runtime_environment,
+            commands::environment::test_ssh_connection,
+            
             // Settings commands (App)
             commands::settings::load_app_settings,
             commands::settings::save_app_settings,

@@ -1,8 +1,12 @@
 use claw_egg_installer::config as openclaw_config;
+use claw_egg_installer::settings::AppSettings;
+use claw_egg_installer::ssh_runner;
 use claw_egg_installer::types::OpenClawConfig;
 use std::fs;
 use std::path::PathBuf;
 use tauri::command;
+
+const OPENCLAW_REMOTE_CONFIG_PATH: &str = "~/.openclaw/openclaw.json";
 
 const CONFIG_FILE: &str = "openclaw_config.json";
 
@@ -45,25 +49,68 @@ pub fn load_config() -> Result<OpenClawConfig, String> {
 }
 
 /// Load OpenClaw configuration from ~/.openclaw/openclaw.json
-/// This reads the actual OpenClaw configuration file
-/// Automatically migrates legacy configs and handles missing fields gracefully
+/// 根据当前运行环境：本机直接读取，远程通过 SSH 读取
 #[command]
 pub fn load_openclaw_config() -> Result<OpenClawConfig, String> {
-    let mut config = openclaw_config::load_openclaw_config()
-        .map_err(|e| e.to_string())?;
-    
-    // Migrate legacy config if needed
+    let settings = AppSettings::load().map_err(|e| e.to_string())?;
+    let env = ssh_runner::get_current_environment(&settings.runtime_environments);
+
+    let mut config = if let Some(env) = env {
+        if env.env_type == "remote" {
+            load_openclaw_config_remote(env)?
+        } else {
+            openclaw_config::load_openclaw_config().map_err(|e| e.to_string())?
+        }
+    } else {
+        openclaw_config::load_openclaw_config().map_err(|e| e.to_string())?
+    };
+
     config.migrate_if_needed();
-    
     Ok(config)
 }
 
 /// Save OpenClaw configuration to ~/.openclaw/openclaw.json
-/// This updates the actual OpenClaw configuration file
+/// 根据当前运行环境：本机直接写入，远程通过 SSH 写入
 #[command]
 pub fn save_openclaw_config(config: OpenClawConfig) -> Result<(), String> {
-    openclaw_config::save_openclaw_config(&config)
-        .map_err(|e| e.to_string())
+    let settings = AppSettings::load().map_err(|e| e.to_string())?;
+    let env = ssh_runner::get_current_environment(&settings.runtime_environments);
+
+    if let Some(env) = env {
+        if env.env_type == "remote" {
+            return save_openclaw_config_remote(env, &config);
+        }
+    }
+
+    openclaw_config::save_openclaw_config(&config).map_err(|e| e.to_string())
+}
+
+fn load_openclaw_config_remote(env: &claw_egg_installer::settings::RuntimeEnvironment) -> Result<OpenClawConfig, String> {
+    match ssh_runner::read_remote_file(env, OPENCLAW_REMOTE_CONFIG_PATH) {
+        Ok(content) => {
+            if content.trim().is_empty() {
+                Ok(OpenClawConfig::default())
+            } else {
+                serde_json::from_str(&content).map_err(|e| e.to_string())
+            }
+        }
+        Err(e) => {
+            let err_str = e.to_string();
+            if err_str.contains("No such file") || err_str.contains("not found") {
+                Ok(OpenClawConfig::default())
+            } else {
+                Err(err_str)
+            }
+        }
+    }
+}
+
+fn save_openclaw_config_remote(
+    env: &claw_egg_installer::settings::RuntimeEnvironment,
+    config: &OpenClawConfig,
+) -> Result<(), String> {
+    let content = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    ssh_runner::write_remote_file(env, OPENCLAW_REMOTE_CONFIG_PATH, &content).map_err(|e| e.to_string())
 }
 
 /// Check if OpenClaw configuration exists
@@ -73,8 +120,33 @@ pub fn openclaw_config_exists() -> bool {
 }
 
 /// Get plugin configurations from OpenClaw
+/// 根据当前运行环境读取配置
 #[command]
 pub fn get_plugin_configs() -> Result<Vec<openclaw_config::PluginConfig>, String> {
-    openclaw_config::get_plugin_configs()
-        .map_err(|e| e.to_string())
+    let settings = AppSettings::load().map_err(|e| e.to_string())?;
+    let env = ssh_runner::get_current_environment(&settings.runtime_environments);
+
+    let content = if let Some(env) = env {
+        if env.env_type == "remote" {
+            ssh_runner::read_remote_file(env, OPENCLAW_REMOTE_CONFIG_PATH)
+                .unwrap_or_else(|_| "{}".to_string())
+        } else {
+            let path = openclaw_config::get_openclaw_config_path().map_err(|e| e.to_string())?;
+            std::fs::read_to_string(path).unwrap_or_else(|_| "{}".to_string())
+        }
+    } else {
+        let path = openclaw_config::get_openclaw_config_path().map_err(|e| e.to_string())?;
+        std::fs::read_to_string(path).unwrap_or_else(|_| "{}".to_string())
+    };
+
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::json!({}));
+    if let Some(plugins) = json.get("plugins").and_then(|p| p.as_array()) {
+        let configs: Vec<openclaw_config::PluginConfig> = plugins
+            .iter()
+            .filter_map(|p| serde_json::from_value(p.clone()).ok())
+            .collect();
+        Ok(configs)
+    } else {
+        Ok(Vec::new())
+    }
 }

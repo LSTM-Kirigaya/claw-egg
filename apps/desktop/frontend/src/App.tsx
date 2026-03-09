@@ -14,6 +14,7 @@ import {
 import { ThemeProvider, createTheme, CssBaseline, IconButton, Box, Tooltip, Snackbar, Alert } from '@mui/material'
 import { InstallerLayer } from './components/InstallerLayer'
 import { MainLayer } from './components/MainLayer'
+import { EnvironmentSelector } from './components/EnvironmentSelector'
 import { SettingsDialog } from './components/SettingsDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { AppView, ThemePreference } from './types'
@@ -342,12 +343,18 @@ function App() {
             </span>
           </div>
           
-          {/* Center: Draggable area */}
+          {/* Center: Draggable area + 运行环境选择器（仅主界面显示） */}
           <div
             data-tauri-drag-region
             onMouseDown={handleTitleBarMouseDown}
-            className="flex-1 flex items-center h-full cursor-default px-4"
-          />
+            className="flex-1 flex items-center justify-center h-full cursor-default px-4"
+          >
+            {currentView === 'main' && (
+              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <EnvironmentSelector themeMode={themeMode} />
+              </div>
+            )}
+          </div>
           
           {/* Links */}
           <div className={`flex items-center h-full px-2 gap-0.5 border-r mr-1 ${themeMode === 'dark' ? 'border-[#3C3C3C]' : 'border-[#E0E0E0]'}`}>
