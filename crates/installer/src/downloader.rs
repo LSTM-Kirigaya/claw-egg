@@ -19,7 +19,7 @@ impl Default for DownloadConfig {
     fn default() -> Self {
         Self {
             use_china_mirror: Self::detect_china_network(),
-            user_agent: "ClawEgg/0.1.0".to_string(),
+            user_agent: "龙虾孵化器/0.1.0".to_string(),
             timeout_secs: 300,
         }
     }

@@ -1,5 +1,5 @@
 use claw_egg_installer::orchestrator::InstallOrchestrator;
-use claw_egg_installer::types::{Component, InstallProgress, InstallResult, OverallProgress};
+use claw_egg_installer::types::{Component, ComponentProgress, InstallResult, OverallProgress};
 use std::sync::{Arc, Mutex};
 use tauri::command;
 use tauri::State;
@@ -8,12 +8,12 @@ use tauri::Emitter;
 /// Installation state
 #[derive(Default)]
 pub struct InstallState {
-    progress: Arc<Mutex<Vec<InstallProgress>>>,
+    progress: Arc<Mutex<Vec<ComponentProgress>>>,
     is_installing: Arc<Mutex<bool>>,
 }
 
 impl InstallState {
-    pub fn update_progress(&self, progress: InstallProgress) {
+    pub fn update_progress(&self, progress: ComponentProgress) {
         let mut guard = self.progress.lock().unwrap();
         if let Some(existing) = guard.iter_mut().find(|p| p.component == progress.component) {
             *existing = progress;
@@ -22,12 +22,12 @@ impl InstallState {
         }
     }
 
-    pub fn get_progress(&self, component: Component) -> Option<InstallProgress> {
+    pub fn get_progress(&self, component: Component) -> Option<ComponentProgress> {
         let guard = self.progress.lock().unwrap();
         guard.iter().find(|p| p.component == component).cloned()
     }
 
-    pub fn get_all_progress(&self) -> Vec<InstallProgress> {
+    pub fn get_all_progress(&self) -> Vec<ComponentProgress> {
         self.progress.lock().unwrap().clone()
     }
 
@@ -47,7 +47,7 @@ pub fn install_component(
     state: State<InstallState>,
 ) -> Result<InstallResult, String> {
     // Update progress to installing
-    state.update_progress(InstallProgress {
+    state.update_progress(ComponentProgress {
         component,
         status: claw_egg_installer::types::InstallStatus::Installing,
         progress: 0,
@@ -64,7 +64,7 @@ pub fn install_component(
     };
 
     // Update progress to completed
-    state.update_progress(InstallProgress {
+    state.update_progress(ComponentProgress {
         component,
         status: claw_egg_installer::types::InstallStatus::Installed,
         progress: 100,
@@ -79,7 +79,7 @@ pub fn install_component(
 pub fn get_install_progress(
     component: Component,
     state: State<InstallState>,
-) -> Option<InstallProgress> {
+) -> Option<ComponentProgress> {
     state.get_progress(component)
 }
 
@@ -128,4 +128,23 @@ pub async fn start_full_installation(
 #[command]
 pub fn is_installing(state: State<InstallState>) -> bool {
     state.is_installing()
+}
+
+/// Check if installation was previously completed
+#[command]
+pub fn is_installation_complete() -> bool {
+    InstallOrchestrator::is_installation_complete()
+}
+
+/// Check if installation needs retry (was interrupted or failed)
+#[command]
+pub fn needs_installation_retry() -> bool {
+    InstallOrchestrator::needs_retry()
+}
+
+/// Reset installation state (for clean reinstall)
+#[command]
+pub fn reset_installation_state() -> Result<(), String> {
+    InstallOrchestrator::reset_state()
+        .map_err(|e| e.to_string())
 }

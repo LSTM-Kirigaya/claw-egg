@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="apps/desktop/app-icon.png" width="128" height="128" alt="ClawEgg Logo" />
+  <img src="apps/desktop/app-icon.png" width="128" height="128" alt="龙虾孵化器 Logo" />
 
-  # ClawEgg 🥚
+  # 龙虾孵化器 🥚
 
   <p align="center">
     <img src="https://img.shields.io/badge/Rust-1.86+-orange?style=flat-square&logo=rust" alt="Rust Version" />
@@ -19,7 +19,7 @@
 
 ## 功能预览
 
-ClawEgg 是一个跨平台的 OpenClaw 安装工具，帮助用户快速部署和配置 OpenClaw AI Agent 平台。
+龙虾孵化器是一个跨平台的 OpenClaw 安装工具，帮助用户快速部署和配置 OpenClaw AI Agent 平台。
 
 <div align="center">
 
@@ -94,4 +94,4 @@ npx tauri build --target x86_64-pc-windows-msvc
 
 本项目采用 [Apache License 2.0](LICENSE) 许可证。
 
-Copyright © 2026 **ClawEgg Contributors**.
+Copyright © 2026 **龙虾孵化器 Contributors**.

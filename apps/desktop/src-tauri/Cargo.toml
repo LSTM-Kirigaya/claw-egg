@@ -2,7 +2,7 @@
 name = "claw-egg"
 version = "0.1.0"
 edition = "2021"
-description = "ClawEgg - OpenClaw One-Click Installer"
+description = "龙虾孵化器 - OpenClaw 一键安装器"
 
 [lints]
 workspace = true
@@ -11,7 +11,7 @@ workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"

@@ -14,6 +14,14 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* 主题色变量 - VSCode 风格 */
+  --color-primary: #F9300D;
+  --color-secondary: #1A1A1A;
+  --color-surface: #F5F5F5;
+  /* 边框颜色与 #root 边框保持一致 */
+  --color-border: #C8C8C8;
+  --color-border-dark: #3C3C3C;
 }
 
 * {
@@ -22,16 +30,60 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
-  height: 100%;
-  width: 100%;
+html {
+  background: transparent;
+  box-sizing: border-box;
+}
+
+body {
+  @apply text-text-main antialiased font-sans;
+  margin: 0;
+  min-height: 100vh;
   overflow: hidden;
+  background: transparent !important;
+  box-sizing: border-box;
+}
+
+/* 圆角外框容器 - VSCode 风格边框 */
+#root {
+  border-radius: 8px;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+  background: white;
+  /* VSCode 风格的边框：更明显的中灰色边框 */
+  border: 1px solid #C8C8C8;
+  /* 多层阴影：内阴影+外阴影，增强层次感 */
+  box-shadow: 
+    /* 内阴影：模拟边框内侧的微妙深度 */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    /* 外阴影：主阴影 */
+    0 4px 24px rgba(0, 0, 0, 0.18),
+    /* 外发光：帮助与深色背景区分 */
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 深色模式外框样式 - VSCode 风格 */
+.dark #root {
+  background: #1C1C1C;
+  /* 深色模式下使用稍亮的边框，与背景形成对比 */
+  border-color: #404040;
+  box-shadow: 
+    /* 内阴影：微妙的高光 */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    /* 主阴影 */
+    0 4px 24px rgba(0, 0, 0, 0.5),
+    /* 外发光：帮助与背景区分 */
+    0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -40,20 +92,48 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(156, 163, 175, 0.5);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.7);
 }
 
-/* Dark mode scrollbar */
+/* Dark mode scrollbar - 中性灰色 */
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(75, 85, 99, 0.5);
+  background: rgba(80, 80, 80, 0.5);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(75, 85, 99, 0.7);
+  background: rgba(100, 100, 100, 0.7);
+}
+
+/* 细滚动条样式 */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 2px;
+  transition: background 0.2s ease;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+.dark .thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(80, 80, 80, 0.4);
+}
+
+.dark .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 100, 100, 0.7);
 }
 
 /* Animations */

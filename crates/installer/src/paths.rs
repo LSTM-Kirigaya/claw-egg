@@ -4,8 +4,8 @@
 //! is bundled within the application directory (like Blender).
 //!
 //! Directory structure:
-//! Windows: C:\Program Files\ClawEgg\
-//!   ├── ClawEgg.exe
+//! Windows: C:\Program Files\龙虾孵化器\
+//!   ├── 龙虾孵化器.exe
 //!   ├── nodejs\
 //!   │   ├── node.exe
 //!   │   ├── npm.cmd
@@ -13,20 +13,20 @@
 //!   └── resources\
 //!       └── openclaw\
 //!
-//! macOS: /Applications/ClawEgg.app/Contents/
-//!   ├── MacOS/ClawEgg
+//! macOS: /Applications/龙虾孵化器.app/Contents/
+//!   ├── MacOS/龙虾孵化器
 //!   ├── nodejs/
 //!   │   ├── bin/node
 //!   │   ├── bin/npm
 //!   │   └── bin/npx
 //!   └── Resources/openclaw/
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Get the root installation directory
 /// 
-/// On Windows: C:\Program Files\ClawEgg
-/// On macOS: /Applications/ClawEgg.app/Contents
+/// On Windows: C:\Program Files\龙虾孵化器
+/// On macOS: /Applications/龙虾孵化器.app/Contents
 pub fn get_install_root() -> anyhow::Result<PathBuf> {
     // In development, use a local directory
     if cfg!(debug_assertions) {
@@ -52,7 +52,7 @@ fn get_dev_install_root() -> anyhow::Result<PathBuf> {
 fn get_production_install_root() -> anyhow::Result<PathBuf> {
     // Get the directory of the current executable
     let exe_path = std::env::current_exe()?;
-    // Go up from ClawEgg.exe to the install root
+    // Go up from 龙虾孵化器.exe to the install root
     exe_path
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Could not get executable directory"))
@@ -61,8 +61,8 @@ fn get_production_install_root() -> anyhow::Result<PathBuf> {
 
 #[cfg(target_os = "macos")]
 fn get_production_install_root() -> anyhow::Result<PathBuf> {
-    // On macOS: /Applications/ClawEgg.app/Contents/MacOS/ClawEgg
-    // We want: /Applications/ClawEgg.app/Contents
+    // On macOS: /Applications/龙虾孵化器.app/Contents/MacOS/龙虾孵化器
+    // We want: /Applications/龙虾孵化器.app/Contents
     let exe_path = std::env::current_exe()?;
     exe_path
         .parent() // MacOS

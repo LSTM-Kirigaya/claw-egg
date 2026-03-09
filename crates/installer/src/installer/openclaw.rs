@@ -66,11 +66,15 @@ mod tests {
     #[test]
     fn test_openclaw_installer_with_config() {
         let config = OpenClawConfig {
-            app_id: "test_app_id".to_string(),
-            app_secret: "test_secret".to_string(),
-            domain: "feishu.cn".to_string(),
-            model_provider: "qwen".to_string(),
-            model_name: "qwen-turbo".to_string(),
+            platform_type: Some(crate::types::PlatformType::Feishu),
+            platform_configs: None,
+            app_id: Some("test_app_id".to_string()),
+            app_secret: Some("test_secret".to_string()),
+            domain: Some("feishu.cn".to_string()),
+            model_provider: Some("qwen".to_string()),
+            model_name: Some("qwen-turbo".to_string()),
+            api_key: None,
+            base_url: None,
         };
         let installer = OpenClawInstaller::with_config(config);
         assert_eq!(installer.component(), Component::OpenClaw);

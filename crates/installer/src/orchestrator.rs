@@ -1,16 +1,15 @@
 //! Installation orchestrator that manages the entire installation flow
-//! 
+//!
 //! This orchestrator uses bundled Node.js for all operations, avoiding
 //! conflicts with user's existing Node.js installation.
 
-use crate::detector::EnvironmentDetector;
 use crate::downloader::{download_nodejs, DownloadConfig};
 use crate::paths::{
     self, create_command_with_bundled_node, get_node_exe, get_nodejs_dir, get_openclaw_dir,
     is_bundled_nodejs_installed, npm_install_global,
 };
 use crate::types::{
-    Component, InstallResult, InstallStage, OverallProgress,
+    Component, InstallResult, InstallStage, InstallationState, OverallProgress,
 };
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -71,14 +70,41 @@ impl InstallOrchestrator {
         self.report_progress(progress);
     }
 
+    /// Update persistent installation state
+    fn persist_state(&self, stage: InstallStage, error: Option<String>) {
+        let state = InstallationState {
+            stage,
+            completed: stage == InstallStage::Completed,
+            last_error: error,
+            last_attempt: Some(chrono::Local::now().to_rfc3339()),
+            node_path: get_nodejs_dir().ok().map(|p| p.to_string_lossy().to_string()),
+            openclaw_path: get_openclaw_dir().ok().map(|p| p.to_string_lossy().to_string()),
+        };
+        
+        if let Err(e) = state.save() {
+            log::warn!("Failed to save installation state: {}", e);
+        }
+    }
+
     /// Run the complete installation flow
+    /// Supports resuming from previous interrupted installation
     pub async fn run_installation(&self) -> anyhow::Result<InstallResult> {
         log::info!("Starting OpenClaw installation...");
         log::info!("Using China mirror: {}", self.use_china_mirror);
         log::info!("Install root: {:?}", paths::get_install_root()?);
 
+        // Load previous state to check if we need to resume
+        let previous_state = InstallationState::load().unwrap_or_default();
+        let resume_from_stage = if previous_state.needs_retry() {
+            log::info!("Previous installation attempt detected at stage: {:?}", previous_state.stage);
+            Some(previous_state.stage)
+        } else {
+            None
+        };
+
         // Stage 1: Environment Check
         self.update_stage(InstallStage::EnvironmentCheck, 0, "检查系统环境...");
+        self.persist_state(InstallStage::EnvironmentCheck, None);
         
         let bundled_node_exists = is_bundled_nodejs_installed();
         
@@ -93,20 +119,38 @@ impl InstallOrchestrator {
         self.update_stage(InstallStage::EnvironmentCheck, 100, "环境检查完成");
 
         // Stage 2 & 3: Download and Install Node.js (if needed)
-        if !bundled_node_exists {
+        // If resuming from a failed download/install, always retry
+        let need_nodejs = !bundled_node_exists || matches!(
+            resume_from_stage,
+            Some(InstallStage::DownloadNodeJs | InstallStage::InstallNodeJs)
+        );
+        
+        if need_nodejs {
             self.install_nodejs().await?;
         } else {
             self.update_stage(InstallStage::InstallNodeJs, 100, "Node.js 已安装，跳过");
         }
 
         // Stage 4: Install OpenClaw using bundled npm
-        self.install_openclaw().await?;
+        // If resuming from a failed OpenClaw install, retry
+        let need_openclaw = matches!(
+            resume_from_stage,
+            Some(InstallStage::InstallOpenClaw | InstallStage::ConfigureOpenClaw | InstallStage::Failed)
+        ) || !self.check_openclaw_installed().await;
+        
+        if need_openclaw {
+            self.install_openclaw().await?;
+        } else {
+            self.update_stage(InstallStage::InstallOpenClaw, 100, "OpenClaw 已安装，跳过");
+        }
 
         // Stage 5: Configuration
         self.update_stage(InstallStage::ConfigureOpenClaw, 100, "OpenClaw 安装完成");
+        self.persist_state(InstallStage::ConfigureOpenClaw, None);
         
         // Final completion
         self.update_stage(InstallStage::Completed, 100, "安装完成！");
+        self.persist_state(InstallStage::Completed, None);
 
         Ok(InstallResult {
             component: Component::OpenClaw,
@@ -116,12 +160,18 @@ impl InstallOrchestrator {
         })
     }
 
+    /// Check if OpenClaw is already installed
+    async fn check_openclaw_installed(&self) -> bool {
+        which::which("openclaw").is_ok()
+    }
+
     /// Install Node.js to bundled location
     async fn install_nodejs(&self) -> anyhow::Result<()> {
         let node_version = "22.11.0";
         
         // Stage 2: Download
         self.update_stage(InstallStage::DownloadNodeJs, 0, "准备下载 Node.js...");
+        self.persist_state(InstallStage::DownloadNodeJs, None);
         
         let temp_dir = std::env::temp_dir().join("clawegg");
         std::fs::create_dir_all(&temp_dir)?;
@@ -137,6 +187,8 @@ impl InstallOrchestrator {
                 
                 // Stage 3: Install
                 self.update_stage(InstallStage::InstallNodeJs, 0, "准备安装 Node.js...");
+                self.persist_state(InstallStage::InstallNodeJs, None);
+                
                 self.update_stage(InstallStage::InstallNodeJs, 50, "正在解压 Node.js...");
                 
                 // Extract to bundled location
@@ -146,6 +198,7 @@ impl InstallOrchestrator {
             }
             Err(e) => {
                 log::error!("Failed to download Node.js: {}", e);
+                self.persist_state(InstallStage::Failed, Some(e.to_string()));
                 return Err(anyhow::anyhow!("下载 Node.js 失败: {}", e));
             }
         }
@@ -181,6 +234,7 @@ impl InstallOrchestrator {
     /// Install OpenClaw using bundled npm
     async fn install_openclaw(&self) -> anyhow::Result<()> {
         self.update_stage(InstallStage::InstallOpenClaw, 0, "准备安装 OpenClaw...");
+        self.persist_state(InstallStage::InstallOpenClaw, None);
         
         // Ensure openclaw directory exists
         let openclaw_dir = get_openclaw_dir()?;
@@ -189,10 +243,17 @@ impl InstallOrchestrator {
         self.update_stage(InstallStage::InstallOpenClaw, 30, "正在安装 OpenClaw...");
 
         // Install openclaw globally using bundled npm
-        npm_install_global("openclaw@latest", self.use_china_mirror).await?;
-
-        self.update_stage(InstallStage::InstallOpenClaw, 100, "OpenClaw 安装完成");
-        Ok(())
+        match npm_install_global("openclaw@latest", self.use_china_mirror).await {
+            Ok(_) => {
+                self.update_stage(InstallStage::InstallOpenClaw, 100, "OpenClaw 安装完成");
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("Failed to install OpenClaw: {}", e);
+                self.persist_state(InstallStage::Failed, Some(e.to_string()));
+                Err(e)
+            }
+        }
     }
 
     /// Get current installation stage
@@ -219,6 +280,26 @@ impl InstallOrchestrator {
             }
             Err(_) => Ok(false),
         }
+    }
+
+    /// Check if installation was previously completed
+    pub fn is_installation_complete() -> bool {
+        InstallationState::load()
+            .map(|s| s.is_completed())
+            .unwrap_or(false)
+    }
+
+    /// Check if installation needs to be retried (was interrupted or failed)
+    pub fn needs_retry() -> bool {
+        InstallationState::load()
+            .map(|s| s.needs_retry())
+            .unwrap_or(false)
+    }
+
+    /// Reset installation state (for testing or clean reinstall)
+    pub fn reset_state() -> anyhow::Result<()> {
+        let state = InstallationState::default();
+        state.save()
     }
 }
 

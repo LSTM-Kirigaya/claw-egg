@@ -1,5 +1,5 @@
+use claw_egg_installer::config as openclaw_config;
 use claw_egg_installer::types::OpenClawConfig;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::command;
@@ -13,7 +13,7 @@ fn get_config_path() -> Result<PathBuf, String> {
     Ok(PathBuf::from(home).join(".clawegg").join(CONFIG_FILE))
 }
 
-/// Save OpenClaw configuration
+/// Save OpenClaw configuration to 龙虾孵化器 config
 #[command]
 pub fn save_config(config: OpenClawConfig) -> Result<(), String> {
     let config_path = get_config_path()?;
@@ -29,7 +29,7 @@ pub fn save_config(config: OpenClawConfig) -> Result<(), String> {
     Ok(())
 }
 
-/// Load OpenClaw configuration
+/// Load OpenClaw configuration from 龙虾孵化器 config
 #[command]
 pub fn load_config() -> Result<OpenClawConfig, String> {
     let config_path = get_config_path()?;
@@ -42,4 +42,39 @@ pub fn load_config() -> Result<OpenClawConfig, String> {
     let config: OpenClawConfig = serde_json::from_str(&json).map_err(|e| e.to_string())?;
 
     Ok(config)
+}
+
+/// Load OpenClaw configuration from ~/.openclaw/openclaw.json
+/// This reads the actual OpenClaw configuration file
+/// Automatically migrates legacy configs and handles missing fields gracefully
+#[command]
+pub fn load_openclaw_config() -> Result<OpenClawConfig, String> {
+    let mut config = openclaw_config::load_openclaw_config()
+        .map_err(|e| e.to_string())?;
+    
+    // Migrate legacy config if needed
+    config.migrate_if_needed();
+    
+    Ok(config)
+}
+
+/// Save OpenClaw configuration to ~/.openclaw/openclaw.json
+/// This updates the actual OpenClaw configuration file
+#[command]
+pub fn save_openclaw_config(config: OpenClawConfig) -> Result<(), String> {
+    openclaw_config::save_openclaw_config(&config)
+        .map_err(|e| e.to_string())
+}
+
+/// Check if OpenClaw configuration exists
+#[command]
+pub fn openclaw_config_exists() -> bool {
+    openclaw_config::config_exists()
+}
+
+/// Get plugin configurations from OpenClaw
+#[command]
+pub fn get_plugin_configs() -> Result<Vec<openclaw_config::PluginConfig>, String> {
+    openclaw_config::get_plugin_configs()
+        .map_err(|e| e.to_string())
 }

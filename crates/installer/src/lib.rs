@@ -1,4 +1,4 @@
-//! ClawEgg Installer Library
+//! 龙虾孵化器 Installer Library
 //!
 //! This crate provides functionality to:
 //! - Detect system environment
@@ -8,11 +8,13 @@
 
 use std::path::PathBuf;
 
+pub mod config;
 pub mod detector;
 pub mod downloader;
 pub mod installer;
 pub mod orchestrator;
 pub mod paths;
+pub mod settings;
 pub mod types;
 
 pub use detector::EnvironmentDetector;
@@ -27,7 +29,7 @@ pub use installer::{NodeInstaller, OpenClawInstaller};
 pub use orchestrator::InstallOrchestrator;
 pub use types::*;
 
-/// Get the default installation directory for ClawEgg
+/// Get the default installation directory for 龙虾孵化器
 pub fn get_default_install_dir() -> anyhow::Result<PathBuf> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))

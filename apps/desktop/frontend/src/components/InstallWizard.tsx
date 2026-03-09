@@ -142,7 +142,7 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
               startIcon={<Download />}
               sx={{
                 bgcolor: 'primary.main',
-                color: '#1A1A1A',
+                color: '#FFFFFF',
                 fontWeight: 600,
                 px: 4,
                 textTransform: 'none',
@@ -308,7 +308,7 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
       PaperProps={{
         sx: {
           borderRadius: 3,
-          bgcolor: themeMode === 'dark' ? '#1F2937' : '#FFFFFF',
+          bgcolor: themeMode === 'dark' ? '#252525' : '#FFFFFF',
         }
       }}
     >

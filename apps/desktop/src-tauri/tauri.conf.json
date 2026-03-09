@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ClawEgg",
+  "productName": "龙虾孵化器",
   "version": "0.1.0",
   "identifier": "com.clawegg.desktop",
   "build": {
@@ -11,9 +11,15 @@
   },
   "app": {
     "macOSPrivateApi": true,
+    "withGlobalTauri": false,
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    },
     "windows": [
       {
-        "title": "ClawEgg - OpenClaw Installer",
+        "title": "龙虾孵化器 - OpenClaw 安装器",
         "width": 1000,
         "height": 700,
         "minWidth": 800,

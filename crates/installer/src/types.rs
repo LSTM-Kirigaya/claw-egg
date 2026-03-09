@@ -8,10 +8,9 @@ pub enum InstallStage {
     EnvironmentCheck,    // 1. 检查环境
     DownloadNodeJs,      // 2. 下载 Node.js
     InstallNodeJs,       // 3. 安装 Node.js
-    InstallQwenCli,      // 4. 安装 Qwen CLI
-    InstallOpenClaw,     // 5. 安装 OpenClaw
-    ConfigureOpenClaw,   // 6. 配置 OpenClaw
-    Completed,           // 7. 完成
+    InstallOpenClaw,     // 4. 安装 OpenClaw
+    ConfigureOpenClaw,   // 5. 配置 OpenClaw
+    Completed,           // 6. 完成
     Failed,              // 失败
 }
 
@@ -22,17 +21,16 @@ impl InstallStage {
             InstallStage::EnvironmentCheck => 0,
             InstallStage::DownloadNodeJs => 1,
             InstallStage::InstallNodeJs => 2,
-            InstallStage::InstallQwenCli => 3,
-            InstallStage::InstallOpenClaw => 4,
-            InstallStage::ConfigureOpenClaw => 5,
-            InstallStage::Completed => 6,
-            InstallStage::Failed => 6,
+            InstallStage::InstallOpenClaw => 3,
+            InstallStage::ConfigureOpenClaw => 4,
+            InstallStage::Completed => 5,
+            InstallStage::Failed => 5,
         }
     }
 
     /// Get total number of stages
     pub fn total_stages() -> u8 {
-        6
+        5
     }
 
     /// Get display name
@@ -41,7 +39,6 @@ impl InstallStage {
             InstallStage::EnvironmentCheck => "检查环境",
             InstallStage::DownloadNodeJs => "下载 Node.js",
             InstallStage::InstallNodeJs => "安装 Node.js",
-            InstallStage::InstallQwenCli => "安装 Qwen CLI",
             InstallStage::InstallOpenClaw => "安装 OpenClaw",
             InstallStage::ConfigureOpenClaw => "配置 OpenClaw",
             InstallStage::Completed => "安装完成",
@@ -156,14 +153,289 @@ pub struct ComponentProgress {
     pub message: String,
 }
 
-/// OpenClaw configuration
+/// Platform type for OpenClaw
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlatformType {
+    #[default]
+    Feishu,
+    Discord,
+    Telegram,
+    #[serde(rename = "qq_official")]
+    QqOfficial,
+    #[serde(rename = "qq_onebot")]
+    QqOnebot,
+}
+
+impl fmt::Display for PlatformType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlatformType::Feishu => write!(f, "feishu"),
+            PlatformType::Discord => write!(f, "discord"),
+            PlatformType::Telegram => write!(f, "telegram"),
+            PlatformType::QqOfficial => write!(f, "qq_official"),
+            PlatformType::QqOnebot => write!(f, "qq_onebot"),
+        }
+    }
+}
+
+/// Feishu/Lark platform configuration
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct OpenClawConfig {
+pub struct FeishuConfig {
     pub app_id: String,
     pub app_secret: String,
     pub domain: String,
-    pub model_provider: String,
-    pub model_name: String,
+}
+
+/// Discord platform configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DiscordConfig {
+    pub bot_token: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub guild_id: Option<String>,
+}
+
+/// Telegram platform configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TelegramConfig {
+    pub bot_token: String,
+    pub api_url: Option<String>,
+    pub allowed_users: Option<Vec<String>>,
+}
+
+/// QQ Official platform configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct QqOfficialConfig {
+    pub app_id: String,
+    pub app_secret: String,
+    pub token: String,
+    pub sandbox_mode: bool,
+}
+
+/// QQ OneBot platform configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct QqOnebotConfig {
+    pub http_url: String,
+    pub access_token: Option<String>,
+}
+
+/// Platform-specific configurations
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlatformConfigs {
+    pub feishu: Option<FeishuConfig>,
+    pub discord: Option<DiscordConfig>,
+    pub telegram: Option<TelegramConfig>,
+    pub qq_official: Option<QqOfficialConfig>,
+    pub qq_onebot: Option<QqOnebotConfig>,
+}
+
+/// OpenClaw configuration stored in ~/.openclaw/openclaw.json
+/// All fields are optional to avoid parse errors with existing configs
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct OpenClawConfig {
+    /// Platform type
+    #[serde(rename = "platform")]
+    pub platform_type: Option<PlatformType>,
+    
+    /// Platform-specific configurations
+    #[serde(flatten)]
+    pub platform_configs: Option<PlatformConfigs>,
+    
+    // Legacy fields for backward compatibility
+    /// Feishu/Lark App ID (deprecated, use platform_configs.feishu.app_id)
+    pub app_id: Option<String>,
+    /// Feishu/Lark App Secret (deprecated)
+    pub app_secret: Option<String>,
+    /// Domain: feishu.cn or larksuite.com (deprecated)
+    pub domain: Option<String>,
+    
+    /// Model provider: qwen, openai, anthropic, etc. (legacy)
+    pub model_provider: Option<String>,
+    /// Model name: qwen-turbo, gpt-4, etc. (legacy)
+    pub model_name: Option<String>,
+    /// API key for the model provider (legacy)
+    pub api_key: Option<String>,
+    /// Base URL for API (for custom/proxy endpoints) (legacy)
+    pub base_url: Option<String>,
+    
+    /// LLM environment variables (e.g., OPENAI_API_KEY)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<std::collections::HashMap<String, String>>,
+    
+    /// Agents configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents: Option<AgentsConfig>,
+    
+    /// Models configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<ModelsConfig>,
+}
+
+/// Agents configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentsConfig {
+    pub defaults: Option<AgentDefaults>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentDefaults {
+    pub model: Option<ModelConfig>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelConfig {
+    pub primary: Option<String>,
+}
+
+/// Models configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelsConfig {
+    pub mode: Option<String>,
+    pub providers: Option<std::collections::HashMap<String, ModelProviderConfig>>,
+}
+
+/// Model provider configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelProviderConfig {
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub api: Option<String>,
+    pub models: Option<Vec<ModelInfo>>,
+}
+
+/// Model information
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost: Option<ModelCost>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
+}
+
+/// Model cost information
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCost {
+    pub input: Option<f64>,
+    pub output: Option<f64>,
+    #[serde(rename = "cacheRead")]
+    pub cache_read: Option<f64>,
+    #[serde(rename = "cacheWrite")]
+    pub cache_write: Option<f64>,
+}
+
+impl OpenClawConfig {
+    /// Get the current platform type, defaulting to Feishu
+    pub fn get_platform(&self) -> PlatformType {
+        self.platform_type.clone().unwrap_or_default()
+    }
+    
+    /// Check if this is a legacy config (has app_id but no platform_type)
+    pub fn is_legacy_config(&self) -> bool {
+        self.platform_type.is_none() && self.app_id.is_some()
+    }
+    
+    /// Migrate legacy config to new format
+    pub fn migrate_if_needed(&mut self) {
+        if self.is_legacy_config() {
+            self.platform_type = Some(PlatformType::Feishu);
+            if let (Some(app_id), Some(app_secret), Some(domain)) = 
+                (self.app_id.clone(), self.app_secret.clone(), self.domain.clone()) {
+                self.platform_configs = Some(PlatformConfigs {
+                    feishu: Some(FeishuConfig { app_id, app_secret, domain }),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+}
+
+/// Installation state persisted to disk
+/// Used for resuming interrupted installations
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InstallationState {
+    /// Current or last installation stage
+    pub stage: InstallStage,
+    /// Whether installation is complete
+    pub completed: bool,
+    /// Last error message if failed
+    pub last_error: Option<String>,
+    /// Timestamp of last installation attempt
+    pub last_attempt: Option<String>,
+    /// Node.js installation path
+    pub node_path: Option<String>,
+    /// OpenClaw installation path
+    pub openclaw_path: Option<String>,
+}
+
+impl InstallationState {
+    /// Load installation state from disk
+    pub fn load() -> anyhow::Result<Self> {
+        let state_path = Self::get_state_path()?;
+        if !state_path.exists() {
+            return Ok(Self::default());
+        }
+        let content = std::fs::read_to_string(state_path)?;
+        let state: InstallationState = serde_json::from_str(&content)?;
+        Ok(state)
+    }
+
+    /// Save installation state to disk
+    pub fn save(&self) -> anyhow::Result<()> {
+        let state_path = Self::get_state_path()?;
+        if let Some(parent) = state_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string_pretty(self)?;
+        std::fs::write(state_path, content)?;
+        Ok(())
+    }
+
+    /// Get path to state file
+    fn get_state_path() -> anyhow::Result<std::path::PathBuf> {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))?;
+        Ok(std::path::PathBuf::from(home)
+            .join(".clawegg")
+            .join("installation_state.json"))
+    }
+
+    /// Check if installation was previously completed
+    pub fn is_completed(&self) -> bool {
+        self.completed
+    }
+
+    /// Check if installation needs to be retried
+    /// Returns true if previous attempt failed or was interrupted
+    pub fn needs_retry(&self) -> bool {
+        if self.completed {
+            return false;
+        }
+        // If we have a stage beyond EnvironmentCheck but not completed,
+        // it means the previous attempt was interrupted
+        matches!(self.stage, 
+            InstallStage::DownloadNodeJs | 
+            InstallStage::InstallNodeJs | 
+            InstallStage::InstallOpenClaw | 
+            InstallStage::ConfigureOpenClaw |
+            InstallStage::Failed
+        )
+    }
 }
 
 /// Download progress
@@ -182,27 +454,26 @@ mod tests {
     #[test]
     fn test_install_stage_number() {
         assert_eq!(InstallStage::EnvironmentCheck.number(), 0);
-        assert_eq!(InstallStage::Completed.number(), 6);
+        assert_eq!(InstallStage::Completed.number(), 5);
     }
 
     #[test]
     fn test_overall_progress_calculation() {
         // At stage 0, 50% progress
         let progress = OverallProgress::calculate_overall(InstallStage::EnvironmentCheck, 50);
-        assert!(progress < 20); // Should be less than one sixth (16.67%)
+        assert!(progress < 20);
 
-        // At stage 3 (InstallQwenCli), 0% progress within stage
-        // Stage 3 = 3 * (100/6) = 50%
-        let progress = OverallProgress::calculate_overall(InstallStage::InstallQwenCli, 0);
-        assert_eq!(progress, 48); // 3 * 16 = 48 (integer math)
+        // At stage 2 (InstallNodeJs), 0% progress within stage
+        let progress = OverallProgress::calculate_overall(InstallStage::InstallNodeJs, 0);
+        assert_eq!(progress, 40); // 2 * 20 = 40
 
-        // At stage 3, 50% progress within stage
-        let progress = OverallProgress::calculate_overall(InstallStage::InstallQwenCli, 50);
-        assert_eq!(progress, 56); // 48 + 8 = 56
+        // At stage 2, 50% progress within stage
+        let progress = OverallProgress::calculate_overall(InstallStage::InstallNodeJs, 50);
+        assert_eq!(progress, 50); // 40 + 10 = 50
 
         // Completed
         let progress = OverallProgress::calculate_overall(InstallStage::Completed, 0);
-        assert_eq!(progress, 96); // 6 * 16 = 96, capped at 100
+        assert_eq!(progress, 100);
     }
 
     #[test]
@@ -215,5 +486,20 @@ mod tests {
     fn test_component_display() {
         assert_eq!(Component::NodeJs.to_string(), "Node.js");
         assert_eq!(Component::OpenClaw.to_string(), "OpenClaw");
+    }
+
+    #[test]
+    fn test_installation_state_needs_retry() {
+        let mut state = InstallationState::default();
+        assert!(!state.needs_retry()); // Initial state
+
+        state.stage = InstallStage::DownloadNodeJs;
+        assert!(state.needs_retry());
+
+        state.stage = InstallStage::Failed;
+        assert!(state.needs_retry());
+
+        state.completed = true;
+        assert!(!state.needs_retry());
     }
 }

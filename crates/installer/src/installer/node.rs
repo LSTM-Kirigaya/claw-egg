@@ -11,24 +11,40 @@ impl NodeInstaller {
         Self
     }
 
-    /// Check if a specific Node.js version is installed
-    pub fn check_version(&self, major_version: u32) -> bool {
-        if let Ok(output) = Command::new("node").arg("--version").output() {
-            if output.status.success() {
-                if let Ok(version) = String::from_utf8(output.stdout) {
-                    let version = version.trim();
-                    // Parse version like "v22.11.0"
-                    if let Some(v) = version.strip_prefix('v') {
-                        if let Some(major) = v.split('.').next() {
-                            if let Ok(major_num) = major.parse::<u32>() {
-                                return major_num >= major_version;
-                            }
-                        }
-                    }
-                }
+    /// Check if Node.js version meets requirements:
+    /// - Major version >= 22
+    /// - Major version must be even
+    /// 
+    /// Returns true only if both conditions are met
+    pub fn check_version_requirements(&self) -> bool {
+        if let Some(version) = self.version() {
+            Self::is_valid_node_version(&version)
+        } else {
+            false
+        }
+    }
+
+    /// Parse and validate Node.js version string
+    /// Requirements: >= 22 and even number
+    pub fn is_valid_node_version(version: &str) -> bool {
+        // Parse version like "v22.11.0" or "22.11.0"
+        let version = version.trim().trim_start_matches('v');
+        
+        if let Some(major_str) = version.split('.').next() {
+            if let Ok(major) = major_str.parse::<u32>() {
+                // Must be >= 22 and even
+                return major >= 22 && major % 2 == 0;
             }
         }
         false
+    }
+
+    /// Get the major version number if valid
+    pub fn get_major_version(&self) -> Option<u32> {
+        self.version().and_then(|v| {
+            let v = v.trim().trim_start_matches('v');
+            v.split('.').next()?.parse::<u32>().ok()
+        })
     }
 }
 
@@ -44,7 +60,8 @@ impl Installer for NodeInstaller {
     }
 
     fn is_installed(&self) -> bool {
-        which::which("node").is_ok()
+        // Node is considered "installed" only if it meets version requirements
+        self.check_version_requirements()
     }
 
     fn version(&self) -> Option<String> {
@@ -80,5 +97,30 @@ mod tests {
         // This test is idempotent - it just checks the version format logic
         // doesn't panic, regardless of whether node is installed
         let _ = installer.version();
+    }
+
+    #[test]
+    fn test_valid_node_version() {
+        // Valid versions (>= 22 and even)
+        assert!(NodeInstaller::is_valid_node_version("v22.0.0"));
+        assert!(NodeInstaller::is_valid_node_version("22.0.0"));
+        assert!(NodeInstaller::is_valid_node_version("v22.11.0"));
+        assert!(NodeInstaller::is_valid_node_version("v24.0.0"));
+        assert!(NodeInstaller::is_valid_node_version("v26.1.0"));
+
+        // Invalid versions (< 22 or odd)
+        assert!(!NodeInstaller::is_valid_node_version("v20.0.0"));
+        assert!(!NodeInstaller::is_valid_node_version("v18.0.0"));
+        assert!(!NodeInstaller::is_valid_node_version("v23.0.0"));
+        assert!(!NodeInstaller::is_valid_node_version("v21.0.0"));
+        assert!(!NodeInstaller::is_valid_node_version("v25.0.0"));
+    }
+
+    #[test]
+    fn test_version_parsing() {
+        assert!(NodeInstaller::is_valid_node_version("v22.0.0"));
+        assert!(NodeInstaller::is_valid_node_version("22.11.0"));
+        assert!(!NodeInstaller::is_valid_node_version("invalid"));
+        assert!(!NodeInstaller::is_valid_node_version(""));
     }
 }

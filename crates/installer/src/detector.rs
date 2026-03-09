@@ -10,14 +10,17 @@ impl EnvironmentDetector {
         Self
     }
 
-    /// Check if Node.js is installed
+    /// Check if Node.js is installed and meets version requirements
+    /// Requirements: >= 22 and even number (22, 24, 26, etc.)
     pub fn check_nodejs(&self) -> EnvironmentCheck {
         match which::which("node") {
             Ok(path) => {
                 let version = self.get_node_version();
+                let version_valid = version.as_ref().map(|v| Self::is_valid_node_version(v)).unwrap_or(false);
+                
                 EnvironmentCheck {
                     component: Component::NodeJs,
-                    installed: true,
+                    installed: version_valid,
                     version,
                     path: Some(path.to_string_lossy().to_string()),
                 }
@@ -31,7 +34,21 @@ impl EnvironmentDetector {
         }
     }
 
-
+    /// Check if Node.js version meets requirements:
+    /// - Major version >= 22
+    /// - Major version must be even
+    fn is_valid_node_version(version: &str) -> bool {
+        // Parse version like "v22.11.0" or "22.11.0"
+        let version = version.trim().trim_start_matches('v');
+        
+        if let Some(major_str) = version.split('.').next() {
+            if let Ok(major) = major_str.parse::<u32>() {
+                // Must be >= 22 and even
+                return major >= 22 && major % 2 == 0;
+            }
+        }
+        false
+    }
 
     /// Check if OpenClaw is installed
     pub fn check_openclaw(&self) -> EnvironmentCheck {
@@ -77,8 +94,6 @@ impl EnvironmentDetector {
                 }
             })
     }
-
-
 
     fn get_openclaw_version(&self) -> Option<String> {
         Command::new("openclaw")
@@ -127,4 +142,20 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_valid_node_version() {
+        // Valid versions (>= 22 and even)
+        assert!(EnvironmentDetector::is_valid_node_version("v22.0.0"));
+        assert!(EnvironmentDetector::is_valid_node_version("22.0.0"));
+        assert!(EnvironmentDetector::is_valid_node_version("v22.11.0"));
+        assert!(EnvironmentDetector::is_valid_node_version("v24.0.0"));
+        assert!(EnvironmentDetector::is_valid_node_version("v26.1.0"));
+
+        // Invalid versions (< 22 or odd)
+        assert!(!EnvironmentDetector::is_valid_node_version("v20.0.0"));
+        assert!(!EnvironmentDetector::is_valid_node_version("v18.0.0"));
+        assert!(!EnvironmentDetector::is_valid_node_version("v23.0.0"));
+        assert!(!EnvironmentDetector::is_valid_node_version("v21.0.0"));
+        assert!(!EnvironmentDetector::is_valid_node_version("v25.0.0"));
+    }
 }
