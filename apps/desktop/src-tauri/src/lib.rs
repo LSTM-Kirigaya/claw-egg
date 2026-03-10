@@ -74,13 +74,7 @@ pub fn run() {
             let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
             
-            // 获取图标路径
-            #[cfg(target_os = "macos")]
-            let icon_path = app.path().resolve("icons/icon.png", tauri::path::BaseDirectory::Resource)?;
-            #[cfg(not(target_os = "macos"))]
-            let icon_path = app.path().resolve("icons/icon.ico", tauri::path::BaseDirectory::Resource)?;
-            
-            // 创建托盘图标
+            // 创建托盘图标（使用 default_window_icon，开发模式下 Resource 路径可能不可用）
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
