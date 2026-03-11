@@ -13,9 +13,13 @@ use std::sync::{Arc, Mutex};
 /// Progress callback type
 pub type ProgressCallback = Box<dyn Fn(OverallProgress) + Send + Sync>;
 
+/// Log callback type - 用于实时推送安装过程的命令行输出
+pub type LogCallback = Arc<dyn Fn(String) + Send + Sync>;
+
 /// Installation orchestrator
 pub struct InstallOrchestrator {
     progress_callback: Option<ProgressCallback>,
+    log_callback: Option<LogCallback>,
     state: Arc<Mutex<InstallState>>,
     use_china_mirror: bool,
 }
@@ -31,6 +35,7 @@ impl InstallOrchestrator {
     pub fn new(use_china_mirror: bool) -> Self {
         Self {
             progress_callback: None,
+            log_callback: None,
             state: Arc::new(Mutex::new(InstallState::default())),
             use_china_mirror,
         }
@@ -42,6 +47,15 @@ impl InstallOrchestrator {
         F: Fn(OverallProgress) + Send + Sync + 'static,
     {
         self.progress_callback = Some(Box::new(callback));
+        self
+    }
+
+    /// Set log callback - 用于实时推送安装脚本的命令行输出（用户可展开查看）
+    pub fn on_log<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(String) + Send + Sync + 'static,
+    {
+        self.log_callback = Some(Arc::new(callback));
         self
     }
 
@@ -93,6 +107,9 @@ impl InstallOrchestrator {
 
         // Stage 2: Download script
         self.update_stage(InstallStage::DownloadNodeJs, 0, "正在下载安装脚本...");
+        if let Some(ref cb) = self.log_callback {
+            cb("正在下载安装脚本...".to_string());
+        }
 
         let script_path = download_install_script().await.map_err(|e| {
             log::error!("Failed to download install script: {}", e);
@@ -107,7 +124,14 @@ impl InstallOrchestrator {
         self.persist_state(InstallStage::InstallNodeJs, None);
 
         let report = |p: OverallProgress| self.report_progress(p);
-        run_install_script(&script_path, self.use_china_mirror, &report).await.map_err(|e| {
+        run_install_script(
+            &script_path,
+            self.use_china_mirror,
+            &report,
+            self.log_callback.clone(),
+        )
+        .await
+        .map_err(|e| {
             log::error!("Install script failed: {}", e);
             self.persist_state(InstallStage::Failed, Some(e.to_string()));
             e

@@ -155,13 +155,6 @@ export function ManageTab({ themeMode }: ManageTabProps) {
     return getProviderFromModel(getCurrentModel())
   }
 
-  // 获取当前 model name (不含 provider 前缀)
-  const getCurrentModelName = (): string => {
-    const modelRef = getCurrentModel()
-    const parts = modelRef.split('/')
-    return parts.slice(1).join('/') || ''
-  }
-
   // 获取指定 provider 的 API Key
   const getApiKey = (provider: LlmProvider): string => {
     const providerInfo = LLM_PROVIDERS.find(p => p.id === provider)
@@ -174,7 +167,17 @@ export function ManageTab({ themeMode }: ManageTabProps) {
     return config.models?.providers?.[provider]?.baseUrl || ''
   }
 
-  // 更新大模型选择 (provider + model)
+  // 更新提供商选择
+  const updateProviderSelection = (providerId: LlmProvider) => {
+    const providerInfo = LLM_PROVIDERS.find(p => p.id === providerId)
+    const defaultModel = providerInfo?.models?.[0]
+      ? `${providerId}/${providerInfo.models[0]}`
+      : `${providerId}/default`
+
+    updateModelSelection(defaultModel)
+  }
+
+  // 更新模型选择（在已选提供商下）
   const updateModelSelection = (modelRef: string) => {
     const provider = getProviderFromModel(modelRef)
     const providerInfo = LLM_PROVIDERS.find(p => p.id === provider)
@@ -275,9 +278,19 @@ export function ManageTab({ themeMode }: ManageTabProps) {
   }
 
   // Platform-specific config helpers
-  const updatePlatform = (platform: PlatformType) => {
+  const updatePlatform = useCallback(async (platform: PlatformType) => {
     setConfig(prev => ({ ...prev, platform }))
-  }
+    // 选择 QQ OneBot 时自动安装 openclaw-onebot 插件
+    if (platform === 'qq_onebot') {
+      try {
+        await invoke('install_onebot_plugin')
+        setError(null)
+      } catch (err) {
+        console.warn('OneBot 插件安装失败（可稍后手动安装）:', err)
+        setError(`OneBot 插件自动安装失败，请手动执行: openclaw plugins install @kirigaya/openclaw-onebot`)
+      }
+    }
+  }, [])
 
   const updateFeishuConfig = (key: keyof NonNullable<OpenClawConfig['feishu']>, value: string) => {
     setConfig(prev => ({
@@ -360,7 +373,7 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                 variant="outlined"
                 size="small"
                 startIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                onClick={() => window.open('https://open.feishu.cn/app', '_blank')}
+                onClick={() => window.open('https://open.feishu.cn/app?lang=zh-CN', '_blank')}
                 sx={{ textTransform: 'none', fontSize: 12, py: 0.5 }}
               >
                 打开飞书开放平台
@@ -517,7 +530,7 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                 variant="outlined"
                 size="small"
                 startIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                onClick={() => window.open('https://q.qq.com/#/developer/home', '_blank')}
+                onClick={() => window.open('https://q.qq.com/#/', '_blank')}
                 sx={{ textTransform: 'none', fontSize: 12, py: 0.5 }}
               >
                 打开 QQ 开放平台
@@ -535,7 +548,7 @@ export function ManageTab({ themeMode }: ManageTabProps) {
               onChange={(e) => updateQqOnebotConfig('http_url', e.target.value)}
               fullWidth
               placeholder="http://localhost:3000"
-              helperText="OneBot 实现（如 go-cqhttp、Lagrange）的 HTTP 接口地址"
+              helperText="Napcat 等 OneBot 实现的 HTTP 接口地址"
               FormHelperTextProps={{ sx: { fontSize: 11, mt: 0.5 } }}
               {...compactTextFieldProps}
             />
@@ -553,19 +566,10 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                 variant="outlined"
                 size="small"
                 startIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                onClick={() => window.open('https://github.com/botuniverse/onebot-11', '_blank')}
+                onClick={() => window.open('https://napcat.napneko.icu/', '_blank')}
                 sx={{ textTransform: 'none', fontSize: 12, py: 0.5 }}
               >
-                OneBot 11 文档
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                onClick={() => window.open('https://docs.go-cqhttp.org/', '_blank')}
-                sx={{ textTransform: 'none', fontSize: 12, py: 0.5 }}
-              >
-                go-cqhttp 文档
+                Napcat
               </Button>
             </Box>
           </>
@@ -672,7 +676,7 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                   <Select
                     value={config.platform || 'feishu'}
                     label="消息平台"
-                    onChange={(e) => updatePlatform(e.target.value as PlatformType)}
+                    onChange={(e) => void updatePlatform(e.target.value as PlatformType)}
                   >
                     {PLATFORM_OPTIONS.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value} sx={{ fontSize: 13 }}>
@@ -704,36 +708,73 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                     选择大模型
                   </Typography>
 
+                  {/* 第一步：选择模型提供商 */}
                   <FormControl fullWidth {...compactSelectProps}>
-                    <InputLabel sx={{ fontSize: 13 }}>大模型</InputLabel>
+                    <InputLabel sx={{ fontSize: 13 }}>模型提供商</InputLabel>
                     <Select
-                      value={getCurrentModel()}
-                      label="大模型"
-                      onChange={(e) => updateModelSelection(e.target.value)}
+                      value={getCurrentProvider()}
+                      label="模型提供商"
+                      onChange={(e) => updateProviderSelection(e.target.value as LlmProvider)}
                     >
                       {LLM_PROVIDERS.map((provider) => (
-                        provider.models.length > 0 ? (
-                          // 有固定模型列表的提供商
-                          provider.models.map((model) => (
-                            <MenuItem 
-                              key={`${provider.id}/${model}`}
-                              value={`${provider.id}/${model}`}
-                              sx={{ fontSize: 13 }}
-                            >
-                              {provider.name} / {model}
-                            </MenuItem>
-                          ))
-                        ) : (
-                          // 没有固定模型列表的提供商，使用 provider id
-                          <MenuItem 
-                            key={provider.id}
-                            value={`${provider.id}/default`}
+                        <MenuItem
+                          key={provider.id}
+                          value={provider.id}
+                          sx={{ fontSize: 13 }}
+                        >
+                          {provider.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* 第二步：选择该提供商下的模型 */}
+                  <FormControl fullWidth {...compactSelectProps}>
+                    <InputLabel sx={{ fontSize: 13 }}>模型</InputLabel>
+                    <Select
+                      value={getCurrentModel()}
+                      label="模型"
+                      onChange={(e) => updateModelSelection(e.target.value)}
+                    >
+                      {(() => {
+                        const provider = getCurrentProvider()
+                        const providerInfo = LLM_PROVIDERS.find(p => p.id === provider)
+                        const currentModelRef = getCurrentModel()
+                        if (!providerInfo) return null
+
+                        if (providerInfo.models.length > 0) {
+                          const items = providerInfo.models.map((model) => {
+                            const modelRef = `${provider}/${model}`
+                            return (
+                              <MenuItem
+                                key={modelRef}
+                                value={modelRef}
+                                sx={{ fontSize: 13 }}
+                              >
+                                {model}
+                              </MenuItem>
+                            )
+                          })
+                          // 若当前配置的模型不在预设列表中（如来自 models.providers 的自定义模型），保留显示
+                          if (currentModelRef.startsWith(`${provider}/`) && !providerInfo.models.some(m => `${provider}/${m}` === currentModelRef)) {
+                            const customModelId = currentModelRef.slice(provider.length + 1)
+                            items.unshift(
+                              <MenuItem key={currentModelRef} value={currentModelRef} sx={{ fontSize: 13 }}>
+                                {customModelId} (自定义)
+                              </MenuItem>
+                            )
+                          }
+                          return items
+                        }
+                        return (
+                          <MenuItem
+                            value={`${provider}/default`}
                             sx={{ fontSize: 13 }}
                           >
-                            {provider.name}
+                            默认
                           </MenuItem>
                         )
-                      ))}
+                      })()}
                     </Select>
                   </FormControl>
 
@@ -780,13 +821,6 @@ export function ManageTab({ themeMode }: ManageTabProps) {
                             FormHelperTextProps={{ sx: { fontSize: 11, mt: 0.5 } }}
                             {...compactTextFieldProps}
                           />
-                        )}
-
-                        {/* 模型选择提示 */}
-                        {providerInfo.models.length > 1 && (
-                          <Alert severity="info" sx={{ py: 0.5, fontSize: 12 }}>
-                            已选择 {providerInfo.name} 的 {getCurrentModelName()} 模型
-                          </Alert>
                         )}
 
                         {/* 描述信息 */}

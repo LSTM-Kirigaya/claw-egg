@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Dialog, 
   DialogTitle, 
@@ -16,9 +16,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material'
-import { Download, CheckCircle, Settings, Rocket, ExternalLink } from 'lucide-react'
+import { Download, CheckCircle, Settings, Rocket, ExternalLink, Terminal, ChevronDown } from 'lucide-react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { OverallProgress, STAGE_NAMES } from '../types'
@@ -38,6 +41,9 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
   const [completed, setCompleted] = useState(initialCompleted)
   const [progress, setProgress] = useState<OverallProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [installLogs, setInstallLogs] = useState<string[]>([])
+  const [logExpanded, setLogExpanded] = useState(false)
+  const logEndRef = useRef<HTMLDivElement>(null)
   
   // Configuration form state
   const [config, setConfig] = useState({
@@ -73,6 +79,20 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
   }, [open])
 
   useEffect(() => {
+    if (!open) return
+    const unlisten = listen<string>('install-log', (event) => {
+      setInstallLogs(prev => [...prev, event.payload])
+    })
+    return () => {
+      unlisten.then(fn => fn())
+    }
+  }, [open])
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
+  }, [installLogs])
+
+  useEffect(() => {
     if (initialCompleted) {
       setCompleted(true)
       setActiveStep(2)
@@ -82,6 +102,7 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
   const startInstall = async () => {
     setInstalling(true)
     setError(null)
+    setInstallLogs([])
     setActiveStep(1)
     
     try {
@@ -173,13 +194,13 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
               </Typography>
             </Box>
 
-            {/* Progress bar */}
+            {/* Progress bar - 弱化百分比显示 */}
             <Box sx={{ mb: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   总进度
                 </Typography>
-                <Typography variant="caption" color="primary" fontWeight="bold">
+                <Typography variant="caption" color="text.secondary">
                   {progress?.overall_progress || 0}%
                 </Typography>
               </Box>
@@ -187,7 +208,7 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
                 variant="determinate" 
                 value={progress?.overall_progress || 0}
                 sx={{ 
-                  height: 10, 
+                  height: 8, 
                   borderRadius: 5,
                   bgcolor: themeMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                   '& .MuiLinearProgress-bar': {
@@ -197,6 +218,72 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
                 }}
               />
             </Box>
+
+            {/* 可展开的安装日志 */}
+            <Accordion
+              expanded={logExpanded}
+              onChange={() => setLogExpanded(!logExpanded)}
+              sx={{
+                bgcolor: 'transparent',
+                boxShadow: 'none',
+                '&:before': { display: 'none' },
+                '& .MuiAccordionSummary-root': { minHeight: 40, px: 0 },
+                '& .MuiAccordionDetails-root': { px: 0, pt: 0 },
+              }}
+            >
+              <AccordionSummary expandIcon={<ChevronDown className="w-5 h-5" />}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Terminal className="w-4 h-4" style={{ color: 'var(--mui-palette-primary-main)' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    查看安装日志
+                  </Typography>
+                  {installLogs.length > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      ({installLogs.length} 行)
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box
+                  sx={{
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    borderRadius: 2,
+                    p: 2,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    bgcolor: themeMode === 'dark' ? '#0a0a0a' : '#1a1a1a',
+                    color: '#e5e5e5',
+                  }}
+                >
+                  {installLogs.length > 0 ? (
+                    <>
+                      <Box
+                        component="pre"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                          m: 0,
+                          fontFamily: 'inherit',
+                          fontSize: 'inherit',
+                        }}
+                      >
+                        {installLogs.map((line, i) => (
+                          <span key={i}>{line}{'\n'}</span>
+                        ))}
+                      </Box>
+                      <div ref={logEndRef} />
+                    </>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      安装脚本运行中，展开可查看实时输出...
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
 
             {/* Current stage */}
             {progress && (
@@ -285,7 +372,7 @@ export function InstallWizard({ open, onClose, themeMode, installCompleted: init
                 variant="outlined"
                 size="small"
                 startIcon={<ExternalLink className="w-4 h-4" />}
-                onClick={() => window.open('https://open.feishu.cn/app', '_blank')}
+                onClick={() => window.open('https://open.feishu.cn/app?lang=zh-CN', '_blank')}
                 sx={{ mt: 1, textTransform: 'none' }}
               >
                 打开飞书开放平台

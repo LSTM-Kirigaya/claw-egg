@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   Box,
-  Paper,
   Tooltip
 } from '@mui/material'
 import {
@@ -29,18 +28,16 @@ export function MainLayer({ themeMode }: MainLayerProps) {
 
   return (
     <Box className="h-full flex">
-      {/* 左侧边栏 - VSCode 风格 */}
-      <Paper 
-        elevation={0}
-        className={`h-full flex flex-col items-center py-2 ${
+      {/* 左侧边栏 - 扁平化设计，与项目风格统一 */}
+      <Box
+        className={`h-full flex flex-col items-center py-2 shrink-0 ${
           themeMode === 'dark' 
-            ? 'bg-[#1C1C1C] border-r border-[#404040]' 
-            : 'bg-gray-50 border-r border-[#E0E0E0]'
+            ? 'bg-[#1C1C1C] border-r border-white/[0.06]' 
+            : 'bg-white border-r border-black/[0.06]'
         }`}
         sx={{ 
           width: 40,
           minWidth: 40,
-          borderRadius: 0 
         }}
       >
         {TABS.map((tab) => {
@@ -108,7 +105,7 @@ export function MainLayer({ themeMode }: MainLayerProps) {
             </Tooltip>
           )
         })}
-      </Paper>
+      </Box>
 
       {/* 主内容区域 */}
       <Box className="flex-1 overflow-hidden">

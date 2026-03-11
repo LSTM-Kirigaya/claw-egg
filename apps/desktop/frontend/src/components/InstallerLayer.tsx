@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { 
@@ -16,7 +16,10 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Chip
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material'
 import { 
   CheckCircle, 
@@ -25,7 +28,8 @@ import {
   Rocket,
   RefreshCw,
   Terminal,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react'
 import { EnvironmentCheck, OverallProgress, STAGE_NAMES } from '../types'
 
@@ -43,6 +47,9 @@ export function InstallerLayer({ onInstallationComplete }: InstallerLayerProps) 
   const [environmentChecks, setEnvironmentChecks] = useState<EnvironmentCheck[]>([])
   const [isCheckingEnv, setIsCheckingEnv] = useState(true)
   const [showEnvResults, setShowEnvResults] = useState(true)
+  const [installLogs, setInstallLogs] = useState<string[]>([])
+  const [logExpanded, setLogExpanded] = useState(false)
+  const logEndRef = useRef<HTMLDivElement>(null)
 
   // Check environment on mount
   useEffect(() => {
@@ -77,6 +84,21 @@ export function InstallerLayer({ onInstallationComplete }: InstallerLayerProps) 
     }
   }, [onInstallationComplete])
 
+  // Listen for install log output (命令行输出)
+  useEffect(() => {
+    const unlisten = listen<string>('install-log', (event) => {
+      setInstallLogs(prev => [...prev, event.payload])
+    })
+    return () => {
+      unlisten.then(fn => fn())
+    }
+  }, [])
+
+  // Auto-scroll log to bottom when new logs arrive
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
+  }, [installLogs])
+
   const checkEnvironment = useCallback(async () => {
     setIsCheckingEnv(true)
     try {
@@ -94,6 +116,7 @@ export function InstallerLayer({ onInstallationComplete }: InstallerLayerProps) 
     setIsInstalling(true)
     setError(null)
     setProgress(null)
+    setInstallLogs([])
     setShowEnvResults(false)
     setActiveStep(1)
     
@@ -260,7 +283,7 @@ export function InstallerLayer({ onInstallationComplete }: InstallerLayerProps) 
                   {progress.message}
                 </Typography>
               </Box>
-              <Typography variant="h4" color="primary" className="font-bold">
+              <Typography variant="body2" color="text.secondary">
                 {progress.overall_progress}%
               </Typography>
             </Box>
@@ -268,14 +291,78 @@ export function InstallerLayer({ onInstallationComplete }: InstallerLayerProps) 
             <LinearProgress
               variant="determinate"
               value={progress.overall_progress}
-              className="h-3 rounded-full mb-4"
+              className="h-2 rounded-full mb-4"
             />
 
             {progress.detail && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" className="block mb-3">
                 {progress.detail}
               </Typography>
             )}
+
+            {/* 可展开的安装日志 - 类似常见安装包 */}
+            <Accordion
+              expanded={logExpanded}
+              onChange={() => setLogExpanded(!logExpanded)}
+              sx={{
+                bgcolor: 'transparent',
+                boxShadow: 'none',
+                '&:before': { display: 'none' },
+                '& .MuiAccordionSummary-root': { minHeight: 40, px: 0 },
+                '& .MuiAccordionDetails-root': { px: 0, pt: 0 },
+              }}
+            >
+              <AccordionSummary expandIcon={<ChevronDown className="w-5 h-5" />}>
+                <Box className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-primary" />
+                  <Typography variant="body2" color="text.secondary">
+                    查看安装日志
+                  </Typography>
+                  {installLogs.length > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      ({installLogs.length} 行)
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box
+                  className="rounded-lg bg-gray-900 dark:bg-black text-gray-100"
+                  sx={{
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    p: 2,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {installLogs.length > 0 ? (
+                    <>
+                      <Box
+                        component="pre"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                          m: 0,
+                          fontFamily: 'inherit',
+                          fontSize: 'inherit',
+                        }}
+                      >
+                        {installLogs.map((line, i) => (
+                          <span key={i}>{line}{'\n'}</span>
+                        ))}
+                      </Box>
+                      <div ref={logEndRef} />
+                    </>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      安装脚本运行中，展开可查看实时输出...
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
           </CardContent>
         </Card>
       )}

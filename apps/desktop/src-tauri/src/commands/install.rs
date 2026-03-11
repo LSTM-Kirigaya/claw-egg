@@ -102,12 +102,16 @@ pub async fn start_full_installation(
         .map(|s| s.network.use_china_mirror)
         .unwrap_or(true); // 默认使用国内镜像
 
-    // Create orchestrator with progress callback
+    // Create orchestrator with progress and log callbacks
     let app_handle = app.clone();
-    let orchestrator = InstallOrchestrator::new(use_china_mirror).on_progress(move |progress: OverallProgress| {
-        // Emit progress event to frontend
-        let _ = app_handle.emit("install-progress", progress);
-    });
+    let app_handle_log = app.clone();
+    let orchestrator = InstallOrchestrator::new(use_china_mirror)
+        .on_progress(move |progress: OverallProgress| {
+            let _ = app_handle.emit("install-progress", progress);
+        })
+        .on_log(move |line: String| {
+            let _ = app_handle_log.emit("install-log", line);
+        });
 
     // Run installation
     let result = orchestrator.run_installation().await;

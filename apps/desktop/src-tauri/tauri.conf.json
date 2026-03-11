@@ -12,11 +12,6 @@
   "app": {
     "macOSPrivateApi": true,
     "withGlobalTauri": false,
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false
-    },
     "windows": [
       {
         "title": "龙虾孵化器 - OpenClaw 安装器",

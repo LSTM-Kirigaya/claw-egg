@@ -119,6 +119,34 @@ pub fn openclaw_config_exists() -> bool {
     openclaw_config::config_exists()
 }
 
+/// Install QQ OneBot plugin when user selects qq_onebot platform
+/// Runs: openclaw plugins install @kirigaya/openclaw-onebot
+/// TODO: 根据 @kirigaya/openclaw-onebot 的 README 自动完成配置（待提供可直接用的配置）
+#[command]
+pub async fn install_onebot_plugin() -> Result<(), String> {
+    use std::process::Command;
+
+    // Try openclaw from PATH first, then npx openclaw
+    let output = if which::which("openclaw").is_ok() {
+        Command::new("openclaw")
+            .args(["plugins", "install", "@kirigaya/openclaw-onebot"])
+            .output()
+    } else {
+        Command::new("npx")
+            .args(["openclaw", "plugins", "install", "@kirigaya/openclaw-onebot"])
+            .output()
+    };
+
+    match output {
+        Ok(out) if out.status.success() => Ok(()),
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            Err(format!("插件安装失败: {}", stderr))
+        }
+        Err(e) => Err(format!("执行失败: {}", e)),
+    }
+}
+
 /// Get plugin configurations from OpenClaw
 /// 根据当前运行环境读取配置
 #[command]

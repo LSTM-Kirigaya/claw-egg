@@ -4,8 +4,72 @@ use commands::install::InstallState;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Manager, Runtime,
 };
+
+fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
+    let show_i = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
+    let hide_i = MenuItem::with_id(app, "hide", "隐藏", true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+
+    let _tray = TrayIconBuilder::new()
+        .icon(app.default_window_icon().ok_or("No window icon")?.clone())
+        .menu(&menu)
+        .tooltip("龙虾孵化器 - OpenClaw 安装器")
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "hide" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            match event {
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } => {
+                    let app = tray.app_handle();
+                    if let Some(window) = app.get_webview_window("main") {
+                        if let Ok(visible) = window.is_visible() {
+                            if visible {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                }
+                TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                } => {
+                    let app = tray.app_handle();
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                _ => {}
+            }
+        })
+        .build(app)?;
+
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,6 +107,7 @@ pub fn run() {
             commands::config::save_openclaw_config,
             commands::config::openclaw_config_exists,
             commands::config::get_plugin_configs,
+            commands::config::install_onebot_plugin,
             
             // Runtime environment commands
             commands::environment::get_runtime_environments,
@@ -67,73 +132,7 @@ pub fn run() {
             commands::tray::is_window_visible,
             commands::tray::quit_app,
         ])
-        .setup(|app| {
-            // 创建托盘菜单
-            let show_i = MenuItem::with_id(app, "show", "显示", true, None::<&str>)?;
-            let hide_i = MenuItem::with_id(app, "hide", "隐藏", true, None::<&str>)?;
-            let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
-            
-            // 创建托盘图标（使用 default_window_icon，开发模式下 Resource 路径可能不可用）
-            let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .tooltip("龙虾孵化器 - OpenClaw 安装器")
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "hide" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.hide();
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    match event {
-                        // 左键点击托盘图标 - 切换窗口显示/隐藏
-                        TrayIconEvent::Click {
-                            button: MouseButton::Left,
-                            button_state: MouseButtonState::Up,
-                            ..
-                        } => {
-                            let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                if let Ok(visible) = window.is_visible() {
-                                    if visible {
-                                        let _ = window.hide();
-                                    } else {
-                                        let _ = window.show();
-                                        let _ = window.set_focus();
-                                    }
-                                }
-                            }
-                        }
-                        // 双击托盘图标 - 显示窗口
-                        TrayIconEvent::DoubleClick {
-                            button: MouseButton::Left,
-                            ..
-                        } => {
-                            let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                        _ => {}
-                    }
-                })
-                .build(app)?;
-            
-            Ok(())
-        })
+        .setup(|_| Ok(()))
         .on_window_event(|window, event| match event {
             // 点击关闭按钮时最小化到托盘而不是退出
             tauri::WindowEvent::CloseRequested { api, .. } => {
@@ -152,6 +151,15 @@ pub fn run() {
             }
             _ => {}
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // 在 RunEvent::Ready 时创建托盘，避免 macOS 上出现重复 Dock 图标（ghost icon）
+            // 参考: https://github.com/tauri-apps/tauri/issues/9480
+            if let tauri::RunEvent::Ready = event {
+                if let Err(e) = create_tray(app) {
+                    log::error!("Failed to create tray icon: {}", e);
+                }
+            }
+        });
 }
